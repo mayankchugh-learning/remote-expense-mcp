@@ -89,6 +89,22 @@ uv sync
 
 ## FastMCP inspector / `fastmcp dev`
 
+### Node.js: `Error: Not connected` (often `sse.js` in the stack trace)
+
+**Symptoms:** The MCP Inspector crashes in Node after a request, with something like `Error: Not connected` from `@modelcontextprotocol/sdk` (for example `sse.js`).
+
+**Cause:** `fastmcp dev inspector` turns on **`--reload` by default**. Reload restarts the Python stdio server when files change; the inspector’s SSE bridge can lose session state and throw this error (similar constraints are documented in FastMCP for reload + SSE).
+
+**Fix:** Run the inspector **without** auto-reload:
+
+```powershell
+uv run fastmcp dev inspector main.py --no-reload
+```
+
+After you edit `main.py`, stop the inspector (Ctrl+C) and start it again, or temporarily omit `--no-reload` only while debugging reload behavior.
+
+### Other inspector issues
+
 **Symptoms:** Tools or resources do not appear, or errors only in the inspector.
 
 **Fix:**

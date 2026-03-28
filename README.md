@@ -159,4 +159,4 @@ fastmcp run main.py --transport http --host 0.0.0.0 --port 8000
 or 
 uv run main.py
 
-uv run fastmcp dev inspector main.py
+uv run fastmcp dev inspector main.py --no-reload
