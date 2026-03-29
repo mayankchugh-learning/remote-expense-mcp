@@ -98,7 +98,7 @@ uv sync
 Add FastMCP to the project:
 
 ```bash
-uv add fastmcp
+uv add fastmcp aiosqlite
 ```
 
 Verify the CLI and versions:
@@ -160,3 +160,8 @@ or
 uv run main.py
 
 uv run fastmcp dev inspector main.py --no-reload
+
+https://realpython.com/async-io-python/
+
+
+https://rapid-crimson-roundworm.fastmcp.app/mcp
