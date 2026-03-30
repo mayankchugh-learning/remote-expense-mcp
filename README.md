@@ -1,25 +1,39 @@
 # remote-expense-mcp
 
-MCP (Model Context Protocol) server for remote expense workflows. This repository is scaffolded for tools and resources that help agents record, query, or reconcile expenses against a remote backend.
+MCP (Model Context Protocol) server built with [FastMCP](https://fastmcp.wiki/) for tracking personal expenses in a local SQLite database.
 
-The Python stack uses [uv](https://docs.astral.sh/uv/) for environments and dependencies and [FastMCP](https://fastmcp.wiki/) to implement the MCP server.
+The Python stack uses [uv](https://docs.astral.sh/uv/) for environments and dependencies. The server lives in a single module, [`main.py`](main.py).
+
+## What it exposes
+
+| Kind | Name | Purpose |
+|------|------|--------|
+| Tool | `add_expense` | Insert a row (`date`, `amount`, `category`, optional `subcategory`, `note`) |
+| Tool | `list_expenses` | Rows in an inclusive `start_date`–`end_date` range (`YYYY-MM-DD`) |
+| Tool | `summarize` | Per-category totals and counts in a date range; optional `category` filter |
+| Resource | `expense:///categories` | JSON list of categories (from `categories.json` beside `main.py`, or built-in defaults) |
+
+Dates should be ISO strings `YYYY-MM-DD` so range queries sort correctly in SQLite.
+
+## Storage
+
+- **Database:** SQLite file `expenses.db` under the system temporary directory (see the log line `Database path: ...` when the server starts). This avoids read-only filesystem issues in some environments.
+- **Optional file:** [`categories.json`](categories.json) next to `main.py` overrides the default category list for the resource; if it is missing, the server uses embedded defaults.
 
 ## Prerequisites
 
-- Python 3.10+ (uv can install a pinned version per project)
-- [uv](https://docs.astral.sh/uv/getting-started/installation/) (see below)
+- Python **3.13+** ([`pyproject.toml`](pyproject.toml) sets `requires-python = ">=3.13"`)
+- [uv](https://docs.astral.sh/uv/getting-started/installation/)
 
 ## Install uv
 
-If you already have Python, you can install uv with pip (often the quickest first step):
+If you already have Python:
 
 ```bash
 pip install uv
 ```
 
-Use `python -m pip install uv` if `pip` is not on your `PATH`. For a user install without touching system Python: `pip install --user uv`.
-
-Other options (standalone binary, often preferred for CI and machines without Python yet) are in the [official uv installation guide](https://docs.astral.sh/uv/getting-started/installation/):
+Use `python -m pip install uv` if `pip` is not on your `PATH`.
 
 **Windows (PowerShell):**
 
@@ -27,141 +41,103 @@ Other options (standalone binary, often preferred for CI and machines without Py
 powershell -ExecutionPolicy ByPass -c "irm https://astral.sh/uv/install.ps1 | iex"
 ```
 
+Other install options are in the [official uv installation guide](https://docs.astral.sh/uv/getting-started/installation/).
+
 **macOS and Linux:**
 
 ```bash
 curl -LsSf https://astral.sh/uv/install.sh | sh
 ```
 
-Confirm `uv` is on your `PATH`, then check the version:
+Confirm `uv` is on your `PATH`:
 
 ```bash
 uv --version
 ```
 
-## Initialize the project with uv
-
-From the repository root, create a uv project. If `pyproject.toml` already exists, `uv init` will refuse to run; use `uv add` / `uv sync` instead, or edit `pyproject.toml` by hand.
-
-**Repo already has docs and `.gitignore` (like this one):** add only a project file so you do not get a second README or starter layout you need to delete:
-
-```bash
-uv init --bare
-```
-
-Then set `name`, `requires-python`, and `dependencies` in `pyproject.toml` before running `uv sync`.
-
-**Greenfield app** (new folder; gives `main.py`, `.python-version`, and default `readme` in metadata):
-
-```bash
-uv init --app
-```
-
-**Packaged app** (installable package with `src/` layout—handy for a CLI entrypoint or tests):
-
-```bash
-uv init --package --app
-```
-
-Match `[project].name` and related fields in `pyproject.toml` to this repository.
-
-## Create a virtual environment
+## Project setup
 
 From the repository root:
-
-```bash
-uv venv
-```
-
-This creates `.venv` in the current directory. Activate it when you want a classic shell-bound venv (optional with uv; `uv run` uses the project environment automatically):
-
-**Windows (PowerShell):**
-
-```powershell
-.\.venv\Scripts\Activate.ps1
-```
-
-**macOS and Linux:**
-
-```bash
-source .venv/bin/activate
-```
-
-Install and lock project dependencies (after dependencies are listed in `pyproject.toml`):
 
 ```bash
 uv sync
 ```
 
-## FastMCP: add dependency and common tasks
+This creates or refreshes `.venv` and installs `fastmcp` and `aiosqlite` per `pyproject.toml`.
 
-Add FastMCP to the project:
+Optional virtualenv activation (not required when using `uv run`):
 
-```bash
-uv add fastmcp aiosqlite
-```
+**Windows (PowerShell):** `.\.venv\Scripts\Activate.ps1`  
+**macOS / Linux:** `source .venv/bin/activate`
 
-Verify the CLI and versions:
+Verify FastMCP:
 
 ```bash
 uv run fastmcp version
 ```
 
-**Typical task-style commands** (run from the repo root; adjust file names to match your tree):
+## Run the server
+
+As checked in, [`main.py`](main.py) starts an **HTTP** MCP server on **all interfaces**, port **8000**:
+
+```bash
+uv run python main.py
+```
+
+Point HTTP-capable MCP clients at the URL your FastMCP version documents for this transport (see [FastMCP deployment / server configuration](https://gofastmcp.com/deployment/server-configuration)).
+
+If your client expects **stdio** (subprocess + JSON-RPC on stdin/stdout), change the `if __name__ == "__main__"` block at the bottom of `main.py` to call `mcp.run()` with the default transport instead of `transport="http"`, then run the same command; configure the client to launch `uv` with `args` like `["run", "python", "main.py"]` and `cwd` set to this repo.
+
+**FastMCP inspector / dev** (optional; adjust flags to match your FastMCP version):
+
+```bash
+uv run fastmcp dev inspector main.py --no-reload
+```
+
+## Typical uv commands
 
 | Task | Command |
 |------|---------|
 | Install / refresh deps | `uv sync` |
-| Add another runtime dependency | `uv add <package>` |
-| Add a dev-only dependency | `uv add --dev <package>` |
-| Check FastMCP / MCP versions | `uv run fastmcp version` |
-| Run server from `fastmcp.json` | `uv run fastmcp run fastmcp.json` |
-| Run server when `fastmcp.json` is in cwd | `uv run fastmcp run` |
-| Run the server module directly | `uv run python -m remote_expense_mcp` *(after you add that package/module)* |
+| Add a dependency | `uv add <package>` |
+| Add a dev dependency | `uv add --dev <package>` |
+| Check FastMCP version | `uv run fastmcp version` |
+| Run this server (HTTP) | `uv run python main.py` |
 
-After you add a `fastmcp.json` (see [FastMCP server configuration](https://gofastmcp.com/deployment/server-configuration)), the `uv run fastmcp run` flow is the usual production-style entry.
+For production, pin exact versions in `pyproject.toml` ([FastMCP versioning](https://fastmcp.wiki/en/development/releases#versioning-policy)).
 
-For production, prefer pinning FastMCP to an exact version in `pyproject.toml` (see [FastMCP versioning](https://fastmcp.wiki/en/development/releases#versioning-policy)).
-
-Optional: set `requires-python` and Python version for uv:
+Optional Python pin for uv:
 
 ```bash
-uv python pin 3.12
+uv python pin 3.13
 ```
 
-## Environment variables
+## MCP client configuration (stdio example)
 
-When `.env.example` exists, copy it to `.env` and set API keys or service URLs. Keep secrets out of git (they are ignored via `.gitignore`).
-
-## MCP client configuration
-
-Point your MCP client at uv and FastMCP. Example (adjust `cwd` and config path):
+After switching `main.py` to stdio if needed, example **Claude Desktop / Cursor–style** config (fix `cwd` to your machine):
 
 ```json
 {
   "mcpServers": {
     "remote-expense": {
       "command": "uv",
-      "args": ["run", "fastmcp", "run", "fastmcp.json"],
+      "args": ["run", "python", "main.py"],
       "cwd": "C:\\githunb\\Claude\\remote-expense-mcp"
     }
   }
 }
 ```
 
-On macOS or Linux, set `cwd` to the absolute path of this repository.
+On macOS or Linux, set `cwd` to the absolute path of this repository. If the client supports only HTTP/SSE, use the server URL from your FastMCP docs instead of a subprocess.
+
+## Environment variables
+
+There is no checked-in `.env.example` yet. If you add API keys or URLs later, keep secrets out of git (see `.gitignore`) and document them here when relevant.
+
+## Troubleshooting
+
+See [troubleshooting.md](troubleshooting.md) for common errors (inspector reload, `uv` path on Windows, resource JSON, import order).
 
 ## License
 
 See [LICENSE](LICENSE).
-
-fastmcp run main.py --transport http --host 0.0.0.0 --port 8000
-or 
-uv run main.py
-
-uv run fastmcp dev inspector main.py --no-reload
-
-https://realpython.com/async-io-python/
-
-
-https://rapid-crimson-roundworm.fastmcp.app/mcp
