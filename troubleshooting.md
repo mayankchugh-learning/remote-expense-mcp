@@ -115,6 +115,33 @@ After you edit `main.py`, stop the inspector (Ctrl+C) and start it again, or tem
 
 ---
 
+## Claude Desktop (Windows): `spawn ... uv.exe ENOENT`
+
+**Symptoms:** A notification like `MCP <name>: spawn` with a path ending in `uv.exe` and **ENOENT**, or `mcp-server-*.log` shows `spawn C:\...\uv.exe ENOENT`.
+
+**Cause:** The `command` for that server points at a path that does not exist. Common cases:
+
+- A **placeholder username** was copied from docs (for example `C:\Users\you\...`) instead of your real profile folder.
+- `uv` was installed to a different location than `AppData\Local\Programs\uv` (for example the standalone installer often uses **`%USERPROFILE%\.local\bin\uv.exe`**).
+
+**Fix:**
+
+1. In PowerShell, find the real executable:
+
+   ```powershell
+   where.exe uv
+   ```
+
+2. Set **`command`** in `claude_desktop_config.json` to that **full path** (with doubled backslashes in JSON, e.g. `C:\\Users\\YourName\\.local\\bin\\uv.exe`).
+3. Ensure **`cwd`** is the project directory that contains `main.py` (or your server entrypoint).
+4. Fully quit and restart **Claude** so it reloads the config. Logs for a single server live next to the config, for example under:
+
+   `%LocalAppData%\Packages\Claude_pzs8sxrjxfjjc\LocalCache\Roaming\Claude\logs\`
+
+**Note:** Using the bare command `"uv"` only works if Claude’s spawned environment includes the folder that contains `uv.exe` on `PATH`; a **full path** is more reliable for desktop apps.
+
+---
+
 ## Getting more detail
 
 1. Run the server in a terminal and watch stderr when a client invokes a tool or resource.
